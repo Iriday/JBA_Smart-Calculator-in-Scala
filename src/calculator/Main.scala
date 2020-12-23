@@ -4,20 +4,31 @@ import scala.io.StdIn.readLine
 import scala.collection.mutable.ArrayBuffer
 
 object Main extends App {
-  while (true) {
-    val in = readLine().trim
+  run()
 
-    if (in.nonEmpty) {
-      if (in.equalsIgnoreCase("/exit")) {
-        println("Bye!")
-        System.exit(0)
-      } else if (in.equalsIgnoreCase("/help")) {
-        println("Example: 2+2 -2 ---2 +-2")
-      } else {
-        println(solveExpression(formatExpression(in)))
+  def run() {
+    while (true) {
+      val in = getInput
+
+      if (in.nonEmpty) {
+        val errorMsg = checkInput(in)
+        if (errorMsg != null) {
+          output(errorMsg)
+        } else if (in.equals("/exit")) {
+          output("Bye!")
+          System.exit(0)
+        } else if (in.equals("/help")) {
+          output("Example: 2+2 -2 ---2 +-2")
+        } else {
+          output(solveExpression(formatExpression(in)))
+        }
       }
     }
   }
+
+  def getInput: String = readLine().trim.toLowerCase
+
+  def output(data: Any): Unit = println(data)
 
   // removes whitespaces, and merges operators
   def formatExpression(expression: String): ArrayBuffer[String] = {
@@ -73,5 +84,26 @@ object Main extends App {
     }
 
     result
+  }
+
+  /**
+   * @param in input
+   * @return null if input is correct else error msg
+   */
+  def checkInput(in: String): String = {
+    // general
+    if (in.isEmpty) return null
+    // command
+    if (in.startsWith("/")) {
+      if (in.equals("/help") || in.equals("/exit")) return null
+      else return "Unknown command"
+    }
+    // expression
+    if (".*[0-9]\\s+[0-9].*".r.matches(in)) return "Invalid expression"
+
+    val in2 = in.replace(" ", "") // remove whitespaces to simplify regex
+    if (!"[-+]*[0-9]+([-+]+[0-9]+)*".r.matches(in2)) return "Invalid expression"
+
+    null
   }
 }
