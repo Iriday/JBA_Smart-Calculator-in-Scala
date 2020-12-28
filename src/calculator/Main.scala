@@ -3,6 +3,7 @@ package calculator
 import scala.io.StdIn.readLine
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
+import InfixPostfixConverter._
 
 object Main extends App {
   private val variables: mutable.HashMap[String, String] = mutable.HashMap()
@@ -10,8 +11,8 @@ object Main extends App {
   private val rLetters = "[a-zA-Z]+".r
   private val rNumWithOptionalSign = "[-+]?[0-9]+".r
   private val rWhitespaceBetweenAlphanum = ".*[0-9a-zA-Z]\\s+[0-9a-zA-Z].*".r
-  private val rExpression = "[-+]*([0-9]+|[a-zA-Z]+)([-+]+([0-9]+|[a-zA-Z]+))*".r
-
+  private val rExpression = "[-+]*([0-9]+|[a-zA-Z]+)(([-+]+|[*/][-+]?)([0-9]+|[a-zA-Z]+))*".r // remove whitespaces/parenthesis before check
+  private val rIncorrectParenthesis = "(.*[^-+/*(][(].*)|(.*[)][^-+/*)].*)|(.*[(][^-+(0-9a-zA-Z].*)|(.*[^0-9a-zA-Z][)].*)|([-+]+[(].*)".r
   run(variables)
 
   def run(variables: mutable.HashMap[String, String]) {
@@ -26,7 +27,7 @@ object Main extends App {
           if (errorMsg != null) output(errorMsg) else addVariable(in)
         } else {
           val errorMsg = checkExpression(in, variables)
-          output(if (errorMsg != null) errorMsg else solveExpression(formatExpression(in, variables)))
+          output(if (errorMsg != null) errorMsg else solveExpression(infixToPostfix(formatExpression(in, variables))))
         }
       }
     }
@@ -50,12 +51,16 @@ object Main extends App {
     while (i < expr.length) {
       // number
       if (expr(i).isDigit) {
-        val numStartPoz = i
+        val s = i // number start position
         i += 1
         while (i < expr.length && expr(i).isDigit) {
           i += 1
         }
-        exprArr += expr.substring(numStartPoz, i)
+        val number = expr.substring(s, i)
+        if (s != 0 && "-+".contains(expr(s - 1)) && (s - 1 == 0 || "*/(".contains(expr(s - 2))))
+          exprArr(exprArr.size - 1) = exprArr.last + number
+        else
+          exprArr += number
       }
       // operators
       else if ("-+".contains(expr(i))) {
@@ -67,32 +72,45 @@ object Main extends App {
         }
         exprArr += operator.toString
       }
+      // parenthesis
+      else if ("()*/".contains(expr(i))) {
+        exprArr += expr(i).toString
+        i += 1
+      }
       // incorrect expression
       else {
         throw new IllegalArgumentException("Error: expression is incorrect")
       }
     }
 
+    if (exprArr(0).equals("+") || exprArr(0).equals("-")) {
+      val sign = exprArr.remove(0)
+      exprArr(0) = sign + exprArr(0)
+    }
+
     exprArr
   }
 
   def solveExpression(expr: ArrayBuffer[String]): Int = {
-    if (!"-".equals(expr(0)) && !"+".equals(expr(0))) expr.insert(0, "+")
-    var result = 0
-    var i = 0
+    val stack = new mutable.Stack[Int]()
 
-    while (i < expr.length) {
-      if ("-" == expr(i)) {
-        result = result - expr(i + 1).toInt
-      } else if ("+".equals(expr(i))) {
-        result = result + expr(i + 1).toInt
+    for (v <- expr) {
+      if ("-+*/".contains(v)) {
+        val b = stack.pop()
+        val a = stack.pop()
+
+        if ("-".equals(v)) stack.push(a - b)
+        else if ("+".equals(v)) stack.push(a + b)
+        else if ("*".equals(v)) stack.push(a * b)
+        else if ("/".equals(v)) stack.push(a / b)
       } else {
-        throw new IllegalArgumentException("Error: unknown operator")
+        stack.push(v.toInt)
       }
-      i += 2
     }
 
-    result
+    if (stack.length != 1) throw new IllegalArgumentException("Error: expression is incorrect")
+
+    stack.pop()
   }
 
   private def executeCommand(in: String) {
@@ -100,7 +118,7 @@ object Main extends App {
       output("Bye!")
       System.exit(0)
     } else if (in.equals("/help")) {
-      output("Examples: a = 2; b=3; a+2 -2 ---b +-2")
+      output("Examples: a = 2; b=3; (a*2) +-2 ---b + ((+3) * 10)  /2")
     } else {
       output("Unknown command")
     }
@@ -120,10 +138,16 @@ object Main extends App {
     if (rWhitespaceBetweenAlphanum.matches(expr)) return "Invalid expression"
 
     val expr2 = expr.replace(" ", "") // remove whitespaces to simplify regex
-    if (!rExpression.matches(expr2)) return "Invalid expression"
+    if (rIncorrectParenthesis.matches(expr2)) return "Invalid expression"
+    val parenthesis = expr2.replaceAll("[^()]+", "")
+    if (parenthesis.length % 2 != 0 || parenthesis.replace("(", "").length != parenthesis.length / 2)
+      return "Invalid expression"
 
-    val expr3 = expr2.split("[^a-zA-Z]+")
-    expr3.foreach(v => if (!vars.contains(v)) return "Unknown variable")
+    val expr3 = expr2.replace("(", "").replace(")", "") // remove parenthesis to simplify regex
+    if (!rExpression.matches(expr3)) return "Invalid expression"
+
+    val exprVars = expr.split("[^a-zA-Z]+")
+    exprVars.foreach(v => if (!vars.contains(v) && v != "") return "Unknown variable")
 
     null
   }
