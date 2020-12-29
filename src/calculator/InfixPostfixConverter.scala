@@ -19,11 +19,16 @@ object InfixPostfixConverter {
           elem = stack.pop()
         }
       } else if (v.equals("+") || v.equals("-")) {
+        if (stack.nonEmpty && stack.head.equals("^")) result += stack.pop()
         if (stack.nonEmpty && (stack.head.equals("*") || stack.head.equals("/"))) result += stack.pop()
         if (stack.nonEmpty && (stack.head.equals("-") || stack.head.equals("+"))) result += stack.pop()
         stack.push(v)
       } else if (v.equals("*") || v.equals("/")) {
+        if (stack.nonEmpty && stack.head.equals("^")) result += stack.pop()
         if (stack.nonEmpty && (stack.head.equals("*") || stack.head.equals("/"))) result += stack.pop()
+        stack.push(v)
+      } else if (v.equals("^")) {
+        if (stack.nonEmpty && stack.head.equals("^")) result += stack.pop()
         stack.push(v)
       } else { // number
         result += v

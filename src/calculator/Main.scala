@@ -11,8 +11,9 @@ object Main extends App {
   private val rLetters = "[a-zA-Z]+".r
   private val rNumWithOptionalSign = "[-+]?[0-9]+".r
   private val rWhitespaceBetweenAlphanum = ".*[0-9a-zA-Z]\\s+[0-9a-zA-Z].*".r
-  private val rExpression = "[-+]*([0-9]+|[a-zA-Z]+)(([-+]+|[*/][-+]?)([0-9]+|[a-zA-Z]+))*".r // remove whitespaces/parenthesis before check
-  private val rIncorrectParenthesis = "(.*[^-+/*(][(].*)|(.*[)][^-+/*)].*)|(.*[(][^-+(0-9a-zA-Z].*)|(.*[^0-9a-zA-Z][)].*)|([-+]+[(].*)".r
+  private val rExpression = "[-+]*([0-9]+|[a-zA-Z]+)(([-+]+|[*/^][-+]?)([0-9]+|[a-zA-Z]+))*".r // remove whitespaces/parenthesis before check
+  private val rIncorrectParenthesis = "(.*[^-+/*^(][(].*)|(.*[)][^-+/*^)].*)|(.*[(][^-+(0-9a-zA-Z].*)|(.*[^0-9a-zA-Z][)].*)|([-+]+[(].*)".r
+
   run(variables)
 
   def run(variables: mutable.HashMap[String, String]) {
@@ -57,12 +58,12 @@ object Main extends App {
           i += 1
         }
         val number = expr.substring(s, i)
-        if (s != 0 && "-+".contains(expr(s - 1)) && (s - 1 == 0 || "*/(".contains(expr(s - 2))))
+        if (s != 0 && "-+".contains(expr(s - 1)) && (s - 1 == 0 || "*/(^".contains(expr(s - 2))))
           exprArr(exprArr.size - 1) = exprArr.last + number
         else
           exprArr += number
       }
-      // operators
+      // + - operator
       else if ("-+".contains(expr(i))) {
         var operator = expr(i)
         i += 1
@@ -72,8 +73,8 @@ object Main extends App {
         }
         exprArr += operator.toString
       }
-      // parenthesis
-      else if ("()*/".contains(expr(i))) {
+      // parenthesis and single operators
+      else if ("()*/^".contains(expr(i))) {
         exprArr += expr(i).toString
         i += 1
       }
@@ -95,7 +96,7 @@ object Main extends App {
     val stack = new mutable.Stack[Int]()
 
     for (v <- expr) {
-      if ("-+*/".contains(v)) {
+      if ("-+*/^".contains(v)) {
         val b = stack.pop()
         val a = stack.pop()
 
@@ -103,6 +104,8 @@ object Main extends App {
         else if ("+".equals(v)) stack.push(a + b)
         else if ("*".equals(v)) stack.push(a * b)
         else if ("/".equals(v)) stack.push(a / b)
+        else if ("^".equals(v)) stack.push(scala.math.pow(a, b).toInt)
+
       } else {
         stack.push(v.toInt)
       }
@@ -118,7 +121,7 @@ object Main extends App {
       output("Bye!")
       System.exit(0)
     } else if (in.equals("/help")) {
-      output("Examples: a = 2; b=3; (a*2) +-2 ---b + ((+3) * 10)  /2")
+      output("Examples: a = 2; b=3; ((a*2) +-2 ---b + ((+3) * 10)  /2)^(1+1)")
     } else {
       output("Unknown command")
     }
