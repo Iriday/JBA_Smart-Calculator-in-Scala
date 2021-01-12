@@ -28,7 +28,17 @@ object Main extends App {
           if (errorMsg != null) output(errorMsg) else addVariable(in)
         } else {
           val errorMsg = checkExpression(in, variables)
-          output(if (errorMsg != null) errorMsg else solveExpression(infixToPostfix(formatExpression(in, variables))))
+
+          output(
+            if (errorMsg != null) {
+              errorMsg
+            } else {
+              try {
+                solveExpression(infixToPostfix(formatExpression(in, variables)))
+              } catch {
+                case e: ArithmeticException => s"Error: ${e.getMessage}" // division by zero
+              }
+            })
         }
       }
     }
